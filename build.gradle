@@ -1,0 +1,21 @@
+apply plugin: 'java'
+
+group = 'org.zyre'
+version = '0.1.0-SNAPSHOT'
+
+description = """jjyre"""
+
+sourceCompatibility = 1.6
+targetCompatibility = 1.6
+
+
+repositories {
+    mavenCentral()
+    maven { url 'https://oss.sonatype.org/content/repositories/snapshots' }
+}
+
+dependencies {
+    compile "org.zeromq:jeromq:0.3.4"
+
+    testCompile "junit:junit:4.11"
+}

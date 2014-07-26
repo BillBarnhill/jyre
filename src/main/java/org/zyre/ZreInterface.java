@@ -34,10 +34,6 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.UUID;
 
-import org.filemq.FmqClient;
-import org.filemq.FmqDir;
-import org.filemq.FmqFile;
-import org.filemq.FmqServer;
 import org.zeromq.ZContext;
 import org.zeromq.ZFrame;
 import org.zeromq.ZMQ;
@@ -221,13 +217,7 @@ public class ZreInterface
         private final Map <String, ZreGroup> own_groups;      //  Groups that we are in
         private final Map <String, String> headers;           //  Our header values
         
-        private final FmqServer fmq_server;           //  FileMQ server object
-        private final int fmq_service;                //  FileMQ server port
-        private final String fmq_outbox;              //  FileMQ server outbox
 
-        private final FmqClient fmq_client;           //  FileMQ client object
-        private final String fmq_inbox;               //  FileMQ client inbox
-        
         private Agent (ZContext ctx, Socket pipe, Socket inbox, 
                                      ZreUdp udp, int port)
         {
@@ -248,28 +238,28 @@ public class ZreInterface
             
             log = new ZreLog (endpoint);
             
-            //  Set up content distribution network: Each server binds to an
-            //  ephemeral port and publishes a temporary directory that acts
-            //  as the outbox for this node.
-            //
-            fmq_outbox = String.format ("%s/%s", OUTBOX, identity);
-            new File (fmq_outbox).mkdir ();
-            
-            fmq_inbox = String.format ("%s/%s", INBOX, identity);
-            new File (fmq_inbox).mkdir ();
-            
-            fmq_server = new FmqServer ();
-            fmq_service = fmq_server.bind ("tcp://*:*");
-            fmq_server.publish (fmq_outbox, "/");
-            fmq_server.setAnonymous (1);
-            String publisher = String.format ("tcp://%s:%d", host, fmq_service);
-            headers.put ("X-FILEMQ", publisher);
-            
-            //  Client will connect as it discovers new nodes
-            fmq_client = new FmqClient ();
-            fmq_client.setInbox (fmq_inbox);
-            fmq_client.setResync (1);
-            fmq_client.subscribe ("/");
+//            //  Set up content distribution network: Each server binds to an
+//            //  ephemeral port and publishes a temporary directory that acts
+//            //  as the outbox for this node.
+//            //
+//            fmq_outbox = String.format ("%s/%s", OUTBOX, identity);
+//            new File (fmq_outbox).mkdir ();
+//
+//            fmq_inbox = String.format ("%s/%s", INBOX, identity);
+//            new File (fmq_inbox).mkdir ();
+//
+//            fmq_server = new FmqServer ();
+//            fmq_service = fmq_server.bind ("tcp://*:*");
+//            fmq_server.publish (fmq_outbox, "/");
+//            fmq_server.setAnonymous (1);
+//            String publisher = String.format ("tcp://%s:%d", host, fmq_service);
+//            headers.put ("X-FILEMQ", publisher);
+//
+//            //  Client will connect as it discovers new nodes
+//            fmq_client = new FmqClient ();
+//            fmq_client.setInbox (fmq_inbox);
+//            fmq_client.setResync (1);
+//            fmq_client.subscribe ("/");
         }
         
         protected static Agent newAgent (ZContext ctx, Socket pipe) 
@@ -291,17 +281,17 @@ public class ZreInterface
         
         protected void destroy () 
         {
-            FmqDir inbox = FmqDir.newFmqDir (fmq_inbox, null);
-            if (inbox != null) {
-                inbox.remove (true);
-                inbox.destroy ();
-            }
-            
-            FmqDir outbox = FmqDir.newFmqDir (fmq_outbox, null);
-            if (outbox != null) {
-                outbox.remove (true);
-                outbox.destroy ();
-            }
+//            FmqDir inbox = FmqDir.newFmqDir (fmq_inbox, null);
+//            if (inbox != null) {
+//                inbox.remove (true);
+//                inbox.destroy ();
+//            }
+//
+//            FmqDir outbox = FmqDir.newFmqDir (fmq_outbox, null);
+//            if (outbox != null) {
+//                outbox.remove (true);
+//                outbox.destroy ();
+//            }
             
             for (ZrePeer peer : peers.values ())
                 peer.destroy ();
@@ -310,8 +300,8 @@ public class ZreInterface
             for (ZreGroup group : own_groups.values ())
                 group.destroy ();
             
-            fmq_server.destroy ();
-            fmq_client.destroy ();
+//            fmq_server.destroy ();
+//            fmq_client.destroy ();
             udp.destroy ();
             log.destroy ();
             
@@ -403,80 +393,81 @@ public class ZreInterface
         }
 
         //  Here we handle the different control messages from the front-end
-        protected boolean recvFromApi ()
-        {
+        protected boolean recvFromApi () {
             //  Get the whole message off the pipe in one go
-            ZMsg request = ZMsg.recvMsg (pipe);
-            String command = request.popString ();
+            ZMsg request = ZMsg.recvMsg(pipe);
+            String command = request.popString();
             if (command == null)
                 return false;                  //  Interrupted
 
-            if (command.equals ("WHISPER")) {
+            if (command.equals("WHISPER")) {
                 //  Get peer to send message to
-                String identity = request.popString ();
-                ZrePeer peer = peers.get (identity);
+                String identity = request.popString();
+                ZrePeer peer = peers.get(identity);
 
                 //  Send frame on out to peer's mailbox, drop message
                 //  if peer doesn't exist (may have been destroyed)
                 if (peer != null) {
-                    ZreMsg msg = new ZreMsg (ZreMsg.WHISPER);
-                    msg.setContent (request.pop ());
-                    peer.send (msg);
+                    ZreMsg msg = new ZreMsg(ZreMsg.WHISPER);
+                    msg.setContent(request.pop());
+                    peer.send(msg);
                 }
-            } else if (command.equals ("SHOUT")) {
+            } else if (command.equals("SHOUT")) {
                 //  Get group to send message to
-                String name = request.popString ();
-                ZreGroup group = peer_groups.get (name);
+                String name = request.popString();
+                ZreGroup group = peer_groups.get(name);
                 if (group != null) {
-                    ZreMsg msg = new ZreMsg (ZreMsg.SHOUT);
-                    msg.setGroup (name);
-                    msg.setContent (request.pop ());
-                    group.send (msg);
+                    ZreMsg msg = new ZreMsg(ZreMsg.SHOUT);
+                    msg.setGroup(name);
+                    msg.setContent(request.pop());
+                    group.send(msg);
                 }
-            } else if (command.equals ("JOIN")) {
-                String name = request.popString ();
-                ZreGroup group = own_groups.get (name);
+            } else if (command.equals("JOIN")) {
+                String name = request.popString();
+                ZreGroup group = own_groups.get(name);
                 if (group == null) {
                     //  Only send if we're not already in group
-                    group = ZreGroup.newGroup (name, own_groups);
-                    ZreMsg msg = new ZreMsg (ZreMsg.JOIN);
-                    msg.setGroup (name);
+                    group = ZreGroup.newGroup(name, own_groups);
+                    ZreMsg msg = new ZreMsg(ZreMsg.JOIN);
+                    msg.setGroup(name);
                     //  Update status before sending command
-                    msg.setStatus (incStatus ());
-                    sendPeers (peers, msg);
-                    msg.destroy ();
-                    log.info (ZreLogMsg.ZRE_LOG_MSG_EVENT_JOIN, null, name);
+                    msg.setStatus(incStatus());
+                    sendPeers(peers, msg);
+                    msg.destroy();
+                    log.info(ZreLogMsg.ZRE_LOG_MSG_EVENT_JOIN, null, name);
                 }
-            } else if (command.equals ("LEAVE")) {
-                String name = request.popString ();
-                ZreGroup group = own_groups.get (name);
+            } else if (command.equals("LEAVE")) {
+                String name = request.popString();
+                ZreGroup group = own_groups.get(name);
                 if (group != null) {
                     //  Only send if we are actually in group
-                    ZreMsg msg = new ZreMsg (ZreMsg.LEAVE);
-                    msg.setGroup (name);
+                    ZreMsg msg = new ZreMsg(ZreMsg.LEAVE);
+                    msg.setGroup(name);
                     //  Update status before sending command
-                    msg.setStatus (incStatus ());
-                    sendPeers (peers, msg);
-                    own_groups.remove (name);
-                    log.info (ZreLogMsg.ZRE_LOG_MSG_EVENT_LEAVE, null, name);
+                    msg.setStatus(incStatus());
+                    sendPeers(peers, msg);
+                    own_groups.remove(name);
+                    log.info(ZreLogMsg.ZRE_LOG_MSG_EVENT_LEAVE, null, name);
                 }
-            } else if (command.equals ("SET")) {
-                String name = request.popString ();
-                String value = request.popString ();
-                headers.put (name, value);
-            } else if (command.equals ("PUBLISH")) {
-                String filename = request.popString ();
-                String virtual = request.popString ();
-                //  Virtual filename must start with slash
-                assert (virtual.startsWith ("/"));
-                //  We create symbolic link pointing to real file
-                String symlink = String.format ("%s.ln", virtual.substring (1));
-                FmqFile file = new FmqFile (fmq_outbox, symlink);
-                boolean rc = file.output ();
-                assert (rc);
-                file.write (filename, 0);
-                file.destroy ();
+            } else if (command.equals("SET")) {
+                String name = request.popString();
+                String value = request.popString();
+                headers.put(name, value);
             }
+//            // Since filemq is JNI specific, we dont support publish
+//            } else if (command.equals ("PUBLISH")) {
+//                String filename = request.popString ();
+//                String virtual = request.popString ();
+//                //  Virtual filename must start with slash
+//                assert (virtual.startsWith ("/"));
+//                //  We create symbolic link pointing to real file
+//                String symlink = String.format ("%s.ln", virtual.substring (1));
+//                FmqFile file = new FmqFile (fmq_outbox, symlink);
+//                boolean rc = file.output ();
+//                assert (rc);
+//                file.write (filename, 0);
+//                file.destroy ();
+//            }
             
             request.destroy ();
             return true;
@@ -529,10 +520,10 @@ public class ZreInterface
                 if (collector != null)
                     log.connect (collector);
                 
-                //  If peer is a log collector, connect to it
-                String publisher = msg.headersString ("X-FILEMQ", null);
-                if (publisher != null)
-                    fmq_client.connect (publisher);
+//                //  If peer is a log collector, connect to it
+//                String publisher = msg.headersString ("X-FILEMQ", null);
+//                if (publisher != null)
+//                    fmq_client.connect (publisher);
             }
             else
             if (msg.id () == ZreMsg.WHISPER) {
@@ -650,13 +641,13 @@ public class ZreInterface
             }
         }
         
-        public void recvFmqEvent ()
-        {
-            ZMsg msg = fmq_client.recv ();
-            if (msg == null)
-                return;
-            msg.send (pipe);
-        }
+//        public void recvFmqEvent ()
+//        {
+//            ZMsg msg = fmq_client.recv ();
+//            if (msg == null)
+//                return;
+//            msg.send (pipe);
+//        }
     }
     
     //  Send message to all peers
@@ -690,7 +681,7 @@ public class ZreInterface
             items.register (agent.pipe, Poller.POLLIN);
             items.register (agent.inbox, Poller.POLLIN);
             items.register (agent.udp.handle (), Poller.POLLIN);
-            items.register (agent.fmq_client.handle (), Poller.POLLIN);
+//            items.register (agent.fmq_client.handle (), Poller.POLLIN);
             
             while (!Thread.currentThread ().isInterrupted ()) {
                 long timeout = pingAt - System.currentTimeMillis ();
@@ -711,8 +702,8 @@ public class ZreInterface
                 if (items.pollin (2))
                     agent.recvUdpBeacon ();
                 
-                if (items.pollin (3))
-                    agent.recvFmqEvent ();
+//                if (items.pollin (3))
+//                    agent.recvFmqEvent ();
                 
                 if (System.currentTimeMillis () >= pingAt) {
                     agent.sendBeacon ();

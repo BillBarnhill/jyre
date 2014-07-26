@@ -1,4 +1,6 @@
-# Zyre implementation in Java
+# Zyre implementation in Java using JeroMQ
+
+This fork of jyre is designed to not need JNI calls, using only JeroMQ
 
 ## How to use
 
